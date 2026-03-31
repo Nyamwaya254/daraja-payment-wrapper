@@ -10,7 +10,7 @@ Proxy header handlings
 
 from __future__ import annotations
 
-from ipaddress import AddressValueError, ip_address
+from ipaddress import AddressValueError, ip_address, IPv4Address, IPv6Address
 from typing import Callable
 
 from fastapi import Request
@@ -35,7 +35,9 @@ class SafaricomIPAllowlistMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._settings = get_settings()
         # pre-parse IPS at startup so no parsing overhead per request
-        self._allowed: frozenset = self._parse_ips(self._settings.safaricom_allowed_ips)
+        self._allowed: frozenset[IPv4Address | IPv6Address] = self._parse_ips(
+            self._settings.safaricom_allowed_ips
+        )
 
     @staticmethod
     def _parse_ips(raw_ips: list[str]) -> frozenset:
