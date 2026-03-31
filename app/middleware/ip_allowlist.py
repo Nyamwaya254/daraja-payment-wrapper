@@ -10,7 +10,7 @@ Proxy header handlings
 
 from __future__ import annotations
 
-from ipaddress import AddressValueError, IPv4Address
+from ipaddress import AddressValueError, ip_address
 from typing import Callable
 
 from fastapi import Request
@@ -35,17 +35,15 @@ class SafaricomIPAllowlistMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._settings = get_settings()
         # pre-parse IPS at startup so no parsing overhead per request
-        self._allowed: frozenset[IPv4Address] = self._parse_ips(
-            self._settings.safaricom_allowed_ips
-        )
+        self._allowed: frozenset = self._parse_ips(self._settings.safaricom_allowed_ips)
 
     @staticmethod
-    def _parse_ips(raw_ips: list[str]) -> frozenset[IPv4Address]:
-        """iterate each string to convert to IPv4address and return frozenset if the string is valid else return warning"""
+    def _parse_ips(raw_ips: list[str]) -> frozenset:
+        """iterate each string to convert to IPv4address or IPv6address and return frozenset if the string is valid else return warning"""
         parsed = set()
         for ip_str in raw_ips:
             try:
-                parsed.add(IPv4Address(ip_str))
+                parsed.add(ip_address(ip_str))
             except AddressValueError:
                 logger.warning("invalid_allowlist_ip", ip=ip_str)
         return frozenset
@@ -97,8 +95,8 @@ class SafaricomIPAllowlistMiddleware(BaseHTTPMiddleware):
         return ""
 
     def _is_allowed(self, ip_str: str) -> bool:
-        """Convert string to an IPv4Address and checks membership in the pre-parsed set"""
+        """Convert string to an IPv4Address or IPv6Address and checks membership in the pre-parsed set"""
         try:
-            return IPv4Address(ip_str) in self._allowed
+            return ip_address(ip_str) in self._allowed
         except AddressValueError:
             return False
