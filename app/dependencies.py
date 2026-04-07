@@ -17,6 +17,7 @@ import structlog
 from app.config import Settings, get_settings
 from app.daraja.auth import DarajaAuthManager
 from app.daraja.client import DarajaClient
+from app.observability import configure_observability
 
 
 logger = structlog.get_logger(__name__)
@@ -31,6 +32,7 @@ _daraja_client: DarajaClient | None = None
 @asynccontextmanager
 async def lifespan(app):
     global _engine, _session_factory, _redis_pool, _http_client, _daraja_client
+    configure_observability()
 
     settings = get_settings()
     log = logger.bind(service=settings.service_name, env=settings.environment)
