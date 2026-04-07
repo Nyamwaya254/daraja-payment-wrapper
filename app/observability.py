@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+from typing import Any
+import sentry_sdk
 import structlog
 from structlog.types import WrappedLogger, EventDict
 from opentelemetry import trace
@@ -21,6 +23,10 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.config import get_settings
 
@@ -141,3 +147,120 @@ def configure_opentelemetry(service_name: str, environment: str) -> None:
             "opentelemetry_not_installed",
             hint="pip install opentelemetry-sdk opentelemetry-instrumentation-fastapi",
         )
+
+
+# sentry configuration
+def configure_sentry(dsn: str | None, environment: str, service_name: str) -> None:
+    """Configure sentry for exception tracking"""
+    if not dsn:
+        return
+    try:
+        sentry_sdk.init(
+            dsn=dsn,
+            environment=environment,
+            service_name=service_name,
+            integrations=[
+                FastApiIntegration(),
+                CeleryIntegration(),
+                SqlalchemyIntegration(),
+            ],
+            # Dont send PII to sentry
+            send_default_pii=False,
+            # capture 10% of transactions for performance monitoring
+            traces_sample_rate=0.1,
+            # strip sensitive headers before sending
+            before_send=_sentry_before_send,
+        )
+    except ImportError:
+        pass
+
+
+def _sentry_before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict | None:
+    """Strip sensitive data before sending to sentry."""
+    # remove authorization headers
+    request = event.get("request", {})
+    headers = request.get("headers", {})
+    for sensitive in ["authorization", "x-api-key", "cookie"]:
+        headers.pop(sensitive, None)
+        headers.pop(sensitive.title(), None)
+    return event
+
+
+# payment event metrics
+class PaymentMetrics:
+    """Emit payment tunnel metrics as structured log events
+    These log events are tagged with 'metric=true' for log-based metric
+    pipelines (cloudwatch EMF, Datalog log metrics etc.)
+
+    """
+
+    _logger = structlog.get_logger("metrics")
+
+    @classmethod
+    def stk_initiated(cls, *, payment_id: str, latency_ms: float) -> None:
+        cls._logger.info(
+            "stk_push_initiated",
+            metric=True,
+            payment_id=payment_id,
+            latency_ms=round(latency_ms, 2),
+        )
+
+    @classmethod
+    def stk_confirmed(cls, *, payment_id: str, amount: float) -> None:
+        cls._logger.info(
+            "stk_push_confirmed", metric=True, payment_id=payment_id, amount=amount
+        )
+
+    @classmethod
+    def stk_failed(cls, *, payment_id: str, result_code: int) -> None:
+        cls._logger.info(
+            "stk_push_failed",
+            metric=True,
+            payment_id=payment_id,
+            result_code=result_code,
+        )
+
+    @classmethod
+    def c2b_received(cls, *, amount: float, bill_ref: str) -> None:
+        cls._logger.info(
+            "c2b_payment_received",
+            metric=True,
+            amount=amount,
+            bill_ref_prefix=bill_ref[:3] if bill_ref else "",
+        )
+
+    @classmethod
+    def daraja_latency(
+        cls,
+        *,
+        operation: str,
+        latency_ms: float,
+        status_code: int,
+    ) -> None:
+        cls._logger.info(
+            "daraja_api_latency",
+            metric=True,
+            operation=operation,
+            latency_ms=round(latency_ms, 2),
+            status_code=status_code,
+        )
+
+
+# setup
+def configure_observability() -> None:
+    """Configure all observability tooling from settings.Call once during applicayion startup(in lifespan)"""
+    settings = get_settings()
+
+    configure_structlog(settings.log_level)
+    configure_opentelemetry(settings.service_name, settings.environment)
+    configure_sentry(
+        dsn=settings.sentry_dsn.get_secret_value() if settings.sentry_dsn else None,
+        environment=settings.environment,
+        service_name=settings.service_name,
+    )
+    structlog.get_logger(__name__).info(
+        "observability_configured",
+        log_level=settings.log_level,
+        sentry_enabled=bool(settings.sentry_dsn),
+        environment=settings.environment,
+    )
