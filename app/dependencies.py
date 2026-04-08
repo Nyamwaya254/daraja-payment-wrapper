@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Annotated, AsyncGenerator
+from fastapi import Depends
 import httpx
 from redis.asyncio import ConnectionPool, Redis
 from sqlalchemy.ext.asyncio import (
@@ -17,7 +18,12 @@ import structlog
 from app.config import Settings, get_settings
 from app.daraja.auth import DarajaAuthManager
 from app.daraja.client import DarajaClient
+from app.daraja.query import DarajaQueryClient
+from app.daraja.stk import STKPushInitiator
+from app.models.audit import AuditLogRepository
 from app.observability import configure_observability
+from app.repository.payment_repo import PaymentRepository
+from app.services.stk import STKService
 
 
 logger = structlog.get_logger(__name__)
@@ -90,6 +96,10 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+# db dep annotation
+SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+
+
 async def get_redis() -> AsyncGenerator[Redis, None]:
     if _redis_pool is None:
         raise RuntimeError("Redis pool not initialised")
@@ -108,3 +118,50 @@ def get_daraja_client() -> DarajaClient:
     if _daraja_client is None:
         raise RuntimeError("Daraja client not initialised")
     return _daraja_client
+
+
+# daraja dep annotation
+DarajaDep = Annotated[DarajaClient, Depends(get_daraja_client)]
+
+
+async def get_payment_repo(db: SessionDep) -> PaymentRepository:
+    return PaymentRepository(db)
+
+
+# payment repo dep annotation
+PaymentRepoDep = Annotated[PaymentRepository, Depends(get_payment_repo)]
+
+
+async def get_audit_repo(db: SessionDep) -> AuditLogRepository:
+    return AuditLogRepository(db)
+
+
+# audit repo dep annotation
+AuditRepoDep = Annotated[AuditLogRepository, Depends(get_audit_repo)]
+
+
+async def get_stk_service(
+    payment_repo: PaymentRepoDep,
+    settings: Settings = Depends(get_settings_dep),
+    daraja_client: DarajaClient = Depends(get_daraja_client),
+    redis: Redis = Depends(get_redis),
+) -> STKService:
+    initiator = STKPushInitiator(settings=settings, client=daraja_client)
+    return STKService(
+        settings=settings,
+        initiator=initiator,
+        payment_repo=payment_repo,
+        redis=redis,
+        db=payment_repo._session,
+    )
+
+
+# stk service dep annotation
+STKServiceDep = Annotated[STKService, Depends(get_stk_service)]
+
+
+async def get_query_client(
+    daraja_client: DarajaDep,
+    settings: Settings = Depends(get_settings_dep),
+) -> DarajaQueryClient:
+    return DarajaQueryClient(settings=settings, client=daraja_client)
