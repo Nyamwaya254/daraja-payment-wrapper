@@ -35,6 +35,8 @@ class Settings(BaseSettings):
             "Use ngrok in sandbox: https://xxxx.ngrok.io"
         ),
     )
+    daraja_b2c_initiator_name: str
+    daraja_b2c_security_credential: SecretStr
 
     # HTTP client
     daraja_connect_timeout: float = Field(default=10.0, gt=0)
