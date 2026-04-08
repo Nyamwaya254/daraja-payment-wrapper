@@ -156,6 +156,21 @@ class Settings(BaseSettings):
     environment: str = Field(default="development")
     service_name: str = Field(default="daraja-payment-service")
 
+    # security
+    # internal API authentication
+    internal_api_keys: str = Field(
+        description=(
+            "Comma-separated list of valid API keys for internal service-to-service auth. "
+            "Supports multiple keys for zero-downtime rotation. "
+            "Example: 'key-abc123,key-xyz789'"
+        )
+    )
+
+    @property
+    def parsed_api_keys(self) -> set[str]:
+        """Return the set of valid keys,stripping whitespace."""
+        return {k.strip() for k in self.internal_api_keys.split(",") if k.strip()}
+
     # validators
     @field_validator("daraja_base_url", "daraja_callback_base_url")
     @classmethod
