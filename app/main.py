@@ -124,7 +124,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(PaymentNotFoundError)
     async def not_found(request: Request, exc: PaymentNotFoundError):
         return JSONResponse(
-            404,
+            status_code=404,
             content=_problem(
                 404,
                 "Payment Not Found",
@@ -137,7 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(DuplicatePaymentError)
     async def duplicate(request: Request, exc: DuplicatePaymentError):
         return JSONResponse(
-            409,
+            status_code=409,
             content=_problem(
                 409,
                 "Duplicate Payment Request",
@@ -150,7 +150,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(RateLimitError)
     async def rate_limit(request: Request, exc: RateLimitError):
         return JSONResponse(
-            429,
+            status_code=429,
             headers={"Retry-After": str(exc.retry_after)},
             content=_problem(
                 429,
@@ -164,7 +164,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(DarajaCircuitOpenError)
     async def circuit_open(request: Request, exc: DarajaCircuitOpenError):
         return JSONResponse(
-            503,
+            status_code=503,
             headers={"Retry-After": str(exc.retry_after)},
             content=_problem(
                 503,
@@ -184,13 +184,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             exc.message if effective.environment != "production" else "M-Pesa failed."
         )
         return JSONResponse(
-            502, content=_problem(502, "M-Pesa API Error", detail, "daraja-error")
+            status_code=502,
+            content=_problem(502, "M-Pesa API Error", detail, "daraja-error"),
         )
 
     @app.exception_handler(DomainError)
     async def domain_error(request: Request, exc: DomainError):
         return JSONResponse(
-            400,
+            status_code=400,
             content=_problem(
                 400,
                 "Request Error",
@@ -204,7 +205,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def app_error(request: Request, exc: AppError):
         logger.error("unhandled_app_error", code=exc.code, message=exc.message)
         return JSONResponse(
-            500,
+            status_code=500,
             content=_problem(
                 500,
                 "Internal Server Error",
@@ -222,7 +223,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             traceback=traceback.format_exc(),
         )
         return JSONResponse(
-            500,
+            status_code=500,
             content=_problem(
                 500,
                 "Internal Server Error",

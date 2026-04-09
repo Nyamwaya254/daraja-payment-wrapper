@@ -57,8 +57,8 @@ tokens              = math.min(capacity, tokens + elapsed * refill_rate)
 
 if tokens >= cost then
     tokens = tokens - cost
-    redis.call('HMSET', key, 'tokens', 'last_refill', now)
-    redis.call('EXPIRE' key, math.ceil(capacity / refill_rate + 60))
+    redis.call('HMSET', key, 'tokens',tokens,'last_refill', now)
+    redis.call('EXPIRE', key, math.ceil(capacity / refill_rate + 60))
     return {1, math.floor(tokens),0}
 else
     redis.call('HMSET',  key, 'tokens', tokens, 'last_refill', now)
