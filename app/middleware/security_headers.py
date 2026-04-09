@@ -64,7 +64,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # roemove info-leaking headers
         for header in _HEADERS_TO_REMOVE:
-            response.headers.pop(header, None)
+            if header in response.headers:
+                del response.headers[header]
 
         # echo the request ID for client-side correlation
         response.headers["X-Request-ID"] = request_id

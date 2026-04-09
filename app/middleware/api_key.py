@@ -24,6 +24,7 @@ logger = structlog.get_logger(__name__)
 
 _EXEMPT_PREFIXES = (
     "/api/v1/callbacks/",  # Safaricom callback IPs — protected by ip_allowlist.py
+    "/docs",
     "/health",
     "/ready",
 )

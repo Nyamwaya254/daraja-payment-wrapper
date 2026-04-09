@@ -75,7 +75,7 @@ def configure_structlog(log_level: str = "INFO") -> None:
     """Configure structlog for prod JSON output.Call once at application startup"""
     # configure standard library logging to route through structlog
     logging.basicConfig(
-        format="%(message)%",
+        format="%(message)s",
         level=getattr(logging, log_level.upper(), logging.INFO),
     )
     # silence noisy third_party loggers
@@ -111,7 +111,7 @@ def configure_structlog(log_level: str = "INFO") -> None:
             getattr(logging, log_level.upper(), logging.INFO)
         ),
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
