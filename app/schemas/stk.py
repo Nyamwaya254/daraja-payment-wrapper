@@ -201,7 +201,9 @@ class STKCallbackBody(BaseModel):
     CheckoutRequestID: str
     ResultCode: int
     ResultDesc: str
-    CallbackMetadata: CallbackMetadata | None = None
+    callback_metadata: CallbackMetadata | None = Field(
+        default=None, alias="CallbackMetadata"
+    )
 
     @property
     def is_success(self) -> bool:
@@ -214,9 +216,9 @@ class STKCallbackBody(BaseModel):
                 f"Cannot extract payment details from a failed callback"
                 f"(ResultCode{self.ResultCode}: {self.ResultDesc})"
             )
-        if not self.CallbackMetadata:
+        if not self.callback_metadata:
             return {}
-        return self.CallbackMetadata.to_dict()
+        return self.callback_metadata.to_dict()
 
 
 class STKCallbackEnvelope(BaseModel):
