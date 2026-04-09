@@ -45,7 +45,9 @@ celery_app = Celery(
     backend=_settings.redis_url,
     include=[
         "app.tasks.stk_tasks",
-        "app.tasks.c2b_tasks",
+        # "app.tasks.c2b_tasks",
+        "app.tasks._infra",
+        "app.tasks._worker_utils",
         "app.tasks.reconciliation_tasks",
     ],
 )
@@ -55,7 +57,7 @@ celery_app.conf.update(
     # serialization
     task_serializer="json",
     result_serializer="json",
-    accept_content="json",
+    accept_content=["json"],
     # reliability
     tasks_acks_late=True,  # ACK only after task completes
     task_reject_on_worker_lost=True,  # Requeue if worker dies mid-task
@@ -89,9 +91,9 @@ celery_app.conf.update(
             "options": {"queue": "reconciliation"},
         },
         "check-daraja-account-balance": {
-            "tasks": "app.tasks.reconciliation_tasks.check_account_balance",
+            "task": "app.tasks.reconciliation_tasks.check_account_balance",
             "schedule": 3600.0,  # every hour
-            "options": {"queue": "reconciliatin"},
+            "options": {"queue": "reconciliation"},
         },
     },
     beat_schedule_filename="/tmp/celerybeat-schedule",

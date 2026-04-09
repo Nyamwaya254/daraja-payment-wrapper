@@ -14,7 +14,7 @@ from app.daraja.stk import STKPushInitiator
 from app.repository.payment_repo import PaymentRepository
 from app.schemas.stk import STKCallbackBody, STKPushInitiateRequest
 from app.services.stk import STKService
-from app.tasks import celery_app
+from app.tasks.celery import celery_app
 from app.tasks._infra import get_http_client, get_redis, get_session_factory
 from app.tasks._worker_utils import run_async
 

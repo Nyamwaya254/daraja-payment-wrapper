@@ -11,7 +11,7 @@ from app.daraja.auth import DarajaAuthManager
 from app.daraja.client import DarajaClient
 from app.daraja.query import DarajaQueryClient
 from app.models.payment import Payment, PaymentStatus
-from app.tasks import celery_app
+from app.tasks.celery import celery_app
 from app.tasks._infra import get_http_client, get_redis, get_session_factory
 from app.tasks._worker_utils import run_async
 

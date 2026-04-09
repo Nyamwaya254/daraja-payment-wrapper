@@ -22,7 +22,7 @@ from app.config import get_settings
 _settings = get_settings()
 
 # DB engine
-_engine: Optional[AsyncEngine]
+_engine: Optional[AsyncEngine] = None
 _session_factory: Optional[async_sessionmaker] = None
 
 
