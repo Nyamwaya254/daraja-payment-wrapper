@@ -27,6 +27,8 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+# Paths that need relaxed security headers (Swagger UI, ReDoc)
+_DOCS_PATHS = {"/docs", "/redoc", "/openapi.json"}
 
 _SECURITY_HEADERS = {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
@@ -57,6 +59,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # store the request state so route handlers can log it
         request.state.request_id = request_id
         response = await call_next(request)
+
+        # skip strict CSP for documentation endpoints
+        if any(request.url.path.startswith(p) for p in _DOCS_PATHS):
+            # Apply only essential headers
+            response.headers["X-Request-id"] = request_id
+            return response
 
         # Apply security headers
         for header, value in _SECURITY_HEADERS.items():
