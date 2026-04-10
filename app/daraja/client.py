@@ -207,6 +207,8 @@ class DarajaClient:
             timeout=httpx.Timeout(
                 connect=self._settings.daraja_connect_timeout,
                 read=self._settings.daraja_read_timeout,
+                write=self._settings.daraja_write_timeout,
+                pool=self._settings.daraja_pool_timeout,
             ),
         )
         latency_ms = (time.perf_counter() - start) * 1000

@@ -111,7 +111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         for e in errors:
             e.pop("url", None)
         return JSONResponse(
-            422,
+            status_code=422,
             content=_problem(
                 422,
                 "Validation Error",
@@ -239,3 +239,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 app = create_app()
+
+
+@app.get("/")
+async def root():
+    return {"message": "Welcome to Daraja Payment Wrapper."}

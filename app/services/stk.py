@@ -28,6 +28,7 @@ Callback idempotency:
 
 from __future__ import annotations
 import uuid
+from datetime import datetime, timezone
 
 import structlog
 from redis.asyncio import Redis
@@ -51,6 +52,16 @@ from app.schemas.stk import (
 
 
 logger = structlog.get_logger(__name__)
+
+
+def _parse_daraja_transaction_date(raw: int | str | None) -> datetime | None:
+    """Daraja sends TransactionDate as YYYYMMDDHHmmss integer e.g. 20260410133540"""
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(str(raw), "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
 
 
 class STKService:
@@ -88,7 +99,7 @@ class STKService:
 
         # idempotency key cache lookup
         key = request.idempotency_key
-        idem_cache_key = f"stk:idem: {key}"
+        idem_cache_key = f"stk:idem:{key}"
         lock_key = f"stk:lock:{key}"
 
         log = logger.bind(
@@ -130,7 +141,7 @@ class STKService:
             # This is the crash-safety anchor. If we die after this write but
             # before the Daraja call, a reconciliation job can clean up PENDING
             # records and determine their true status via Daraja Query API
-            payment_id = str(uuid.uuid4)
+            payment_id = str(uuid.uuid4())
             payment = Payment(
                 id=payment_id,
                 payment_type=PaymentType.STK_PUSH.value,
@@ -142,8 +153,12 @@ class STKService:
                 idempotency_key=key,
             )
 
-            async with self._db.begin():
+            try:
                 await self._payment_repo.create(payment)
+                await self._db.commit()
+            except Exception:
+                await self._db.rollback()
+                raise
 
             # call daraja
             try:
@@ -156,22 +171,29 @@ class STKService:
                 )
             except DarajaError:
                 # mark payment as failed and re-raise the exception so API returns an error to the client
-                async with self._db.begin():
+                try:
                     await self._payment_repo.mark_failed(
                         payment_id,
                         failure_reason="Daraja API call failed before initiation",
                         result_code=1,
                     )
+                    await self._db.commit()
+                except Exception:
+                    await self._db.rollback()
                 log.error("stk_daraja_call_failed", payment_id=payment_id)
                 raise
 
             # persist Daraja identifiers
-            async with self._db.begin():
+            try:
                 await self._payment_repo.update_daraja_ids(
                     payment_id,
                     checkout_request_id=daraja_result.checkout_request_id,
                     merchant_request_id=daraja_result.merchant_request_id,
                 )
+                await self._db.commit()
+            except Exception:
+                await self._db.rollback()
+                raise
             # build response
             response = STKPushInitiateResponse(
                 payment_id=payment_id,
@@ -230,13 +252,19 @@ class STKService:
             except ValueError:
                 details = {}
 
-            async with self._db.begin():
+            try:
                 await self._payment_repo.mark_completed(
                     payment.id,
                     mpesa_receipt=details.get("MpesaReceiptNumber"),
                     amount_paid=details.get("Amount"),
-                    transaction_date=str(details.get("TransactionDate", "")),
+                    transaction_date=_parse_daraja_transaction_date(
+                        details.get("TransactionDate")
+                    ),
                 )
+                await self._db.commit()
+            except Exception:
+                await self._db.rollback()
+                raise
             log.info(
                 "stk_payment_confirmed",
                 payment_id=payment.id,
@@ -247,12 +275,16 @@ class STKService:
             domain_error = daraja_result_code_to_exception(
                 callback.ResultCode, callback.ResultDesc
             )
-            async with self._db.begin():
+            try:
                 await self._payment_repo.mark_failed(
                     payment.id,
                     failure_reason=callback.ResultDesc,
                     result_code=callback.ResultCode,
                 )
+                await self._db.commit()
+            except Exception:
+                await self._db.rollback()
+                raise
             log.info(
                 "stk_payment_failed",
                 payment_id=payment.id,

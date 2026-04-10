@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # HTTP client
     daraja_connect_timeout: float = Field(default=10.0, gt=0)
     daraja_read_timeout: float = Field(default=30.0, gt=0)
+    daraja_write_timeout: float = Field(default=10.0, gt=0)
+    daraja_pool_timeout: float = Field(default=5.0, gt=0)
     daraja_max_connections: int = Field(default=20, gt=0)
     daraja_max_keepalive_connections: int = Field(default=10, gt=0)
 

@@ -19,14 +19,29 @@ from app.exceptions import PaymentNotFoundError
 from app.schemas.stk import (
     DarajaCallbackAck,
     PaymentStatusResponse,
+    STKCallbackBody,
     STKCallbackEnvelope,
     STKPushInitiateRequest,
     STKPushInitiateResponse,
 )
+from app.services.stk import STKService
 
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["STK Push"])
+
+
+async def _safe_process_callback(
+    service: STKService,
+    callback: STKCallbackBody,
+) -> None:
+    try:
+        await service.process_callback(callback)
+    except Exception:
+        logger.exception(
+            "callback_background_task_failed",
+            checkout_id=callback.CheckoutRequestID,
+        )
 
 
 @router.post(
@@ -93,7 +108,7 @@ async def get_payment_status(
 
 
 @router.post(
-    "/callbacks/stk",
+    "/callback/stk",
     response_model=DarajaCallbackAck,
     status_code=200,
     summary="STK Push callback (Daraja -> my server)",
@@ -136,6 +151,6 @@ async def stk_push_callback(
     )
 
     # Queue async processing - weve already ACKed at this point
-    background_tasks.add_task(service.process_callback, callback)
+    background_tasks.add_task(_safe_process_callback, service, callback)
 
     return DarajaCallbackAck(ResultCode="0", ResultDesc="Accepted")
