@@ -141,6 +141,7 @@ AuditRepoDep = Annotated[AuditLogRepository, Depends(get_audit_repo)]
 
 
 async def get_stk_service(
+    db: SessionDep,
     payment_repo: PaymentRepoDep,
     settings: Settings = Depends(get_settings_dep),
     daraja_client: DarajaClient = Depends(get_daraja_client),
@@ -152,7 +153,7 @@ async def get_stk_service(
         initiator=initiator,
         payment_repo=payment_repo,
         redis=redis,
-        db=payment_repo._session,
+        db=db,
     )
 
 

@@ -21,6 +21,7 @@ fastapi==0.135.1
 fastapi-cli==0.0.24
 fastapi-cloud-cli==0.15.0
 fastar==0.9.0
+flower==2.0.1
 googleapis-common-protos==1.74.0
 greenlet==3.3.2
 grpcio==1.80.0
@@ -28,6 +29,7 @@ h11==0.16.0
 httpcore==1.0.9
 httptools==0.7.1
 httpx==0.28.1
+humanize==4.15.0
 idna==3.11
 importlib_metadata==8.7.1
 Jinja2==3.1.6
@@ -50,6 +52,7 @@ opentelemetry-sdk==1.40.0
 opentelemetry-semantic-conventions==0.61b0
 opentelemetry-util-http==0.61b0
 packaging==26.0
+prometheus_client==0.25.0
 prompt_toolkit==3.0.52
 protobuf==6.33.6
 pydantic==2.12.5
@@ -60,6 +63,7 @@ Pygments==2.19.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 python-multipart==0.0.22
+pytz==2026.1.post1
 PyYAML==6.0.3
 redis==7.3.0
 requests==2.33.1
@@ -74,6 +78,7 @@ sqlmodel==0.0.37
 starlette==1.0.0
 structlog==25.5.0
 tenacity==9.1.4
+tornado==6.5.5
 typer==0.24.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0

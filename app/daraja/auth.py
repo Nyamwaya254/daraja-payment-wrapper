@@ -120,6 +120,8 @@ class DarajaAuthManager:
                 timeout=httpx.Timeout(
                     connect=self._settings.daraja_connect_timeout,  # 10s to establish tcp connection
                     read=self._settings.daraja_read_timeout,  # 30s for the response body
+                    write=self._settings.daraja_write_timeout,
+                    pool=self._settings.daraja_pool_timeout,
                 ),
             )
             response.raise_for_status()
