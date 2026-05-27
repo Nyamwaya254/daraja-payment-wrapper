@@ -23,7 +23,7 @@ from starlette.responses import JSONResponse
 logger = structlog.get_logger(__name__)
 
 _EXEMPT_PREFIXES = (
-    "/api/v1/callbacks/",  # Safaricom callback IPs — protected by ip_allowlist.py
+    "/api/v1/callback/",  # Safaricom callback IPs — protected by ip_allowlist.py
     "/docs",
     "/openapi.json",
     "/redoc",

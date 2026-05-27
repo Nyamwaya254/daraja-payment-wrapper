@@ -15,7 +15,7 @@ from typing import Any
 class AppError(Exception):
     """Root of the application expection hierarchy"""
 
-    message = str
+    message: str = ""
     code: str = "INTERNAL_ERROR"
     details: dict[str, Any] = field(default_factory=dict)
 
