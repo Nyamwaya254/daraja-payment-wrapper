@@ -20,6 +20,14 @@ class Settings(BaseSettings):
         default="https://sandbox.safaricom.co.ke",
         description="Switch to https://api.safaricom.co.ke in production.",
     )
+
+    @field_validator("database_url")
+    @classmethod
+    def fix_asyncpg_scheme(cls, v: str) -> str:
+        if isinstance(v, str) and v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
     daraja_consumer_key: SecretStr
     daraja_consumer_secret: SecretStr
     daraja_shortcode: str = Field(
