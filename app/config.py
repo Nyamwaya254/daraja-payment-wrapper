@@ -219,13 +219,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def prod_safety_checks(self) -> "Settings":
-        if self.environment == "production":
-            if self.trust_callback_ips_in_sandbox:
-                raise ValueError(
-                    "trust_callback_ips_in_sandbox must be False in production"
-                )
-            if self.database_echo:
-                raise ValueError("database_echo must be False in production")
+        is_daraja_production = "sandbox" not in self.daraja_base_url
+
+        if is_daraja_production and self.trust_callback_ips_in_sandbox:
+            raise ValueError(
+                "trust_callback_ips_in_sandbox must be False when using "
+                "Daraja production URL (api.safaricom.co.ke). "
+                "Set DARAJA_BASE_URL to sandbox or set TRUST_CALLBACK_IPS_IN_SANDBOX=false."
+            )
+
+        if self.environment == "production" and self.database_echo:
+            raise ValueError("database_echo must be False in production")
 
         return self
 
