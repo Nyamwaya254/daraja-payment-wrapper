@@ -48,7 +48,7 @@ class SafaricomIPAllowlistMiddleware(BaseHTTPMiddleware):
                 parsed.add(ip_address(ip_str))
             except AddressValueError:
                 logger.warning("invalid_allowlist_ip", ip=ip_str)
-        return frozenset
+        return frozenset(parsed)
 
     async def dispatch(self, request: Request, call_next: Callable):
         # only inspect callback routes else skip all checks and pass through
