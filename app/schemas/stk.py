@@ -2,6 +2,7 @@ from __future__ import annotations
 from decimal import Decimal
 import re
 from typing import Annotated, Any
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -137,7 +138,7 @@ class STKPushInitiateResponse(BaseModel):
     for the outcome — the payment is not complete until the callback confirms it
     """
 
-    payment_id: str = Field(description="Internal payment UUID for status polling")
+    payment_id: UUID = Field(description="Internal payment UUID for status polling")
     checkout_request_id: str = Field(
         description="Daraja CheckoutRequestID — unique per STK request.",
         examples=["ws_CO_191220191020363925"],
@@ -160,7 +161,7 @@ class STKPushInitiateResponse(BaseModel):
 class PaymentStatusResponse(BaseModel):
     """Payment status for polling endpoint"""
 
-    payment_id: str
+    payment_id: UUID
     status: str
     amount: str
     phone: str
