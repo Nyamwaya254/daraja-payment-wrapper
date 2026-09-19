@@ -2,20 +2,22 @@
 
 | Field | Value |
 | --- | --- |
-| Version | 0.3 |
-| Date | 15 September 2026 |
+| Version | 0.4 |
+| Date | 19 September 2026 |
 | Status | Draft for implementation clarification |
 | Product owner | Billy |
 | Codebase | `daraja-payment-wrapper` |
-| First release | Multi-merchant STK collections, C2B collections, individual B2C payouts, Clerk owner authentication, webhooks, Python/TypeScript SDKs, and template-generated integration snippets and coding-agent prompts |
+| First release | Multi-merchant STK collections, C2B collections, individual B2C payouts, Clerk owner authentication, a read-only merchant dashboard, webhooks, Python/TypeScript SDKs, and template-generated integration snippets and coding-agent prompts |
 
-This document describes **work to be done**, not features already delivered. It incorporates the decision to build APIs, documentation, and SDKs without a developer website, dashboard, or hosted checkout. Clerk-hosted authentication and a minimal session-handoff helper are included for owner API access. Earlier proposals containing a complete developer website or dashboard are superseded.
+This document describes **work to be done**, not features already delivered. The first release includes APIs, documentation, SDKs, and a small read-only merchant dashboard. Clerk-hosted authentication supplies access to owner APIs and the dashboard. The dashboard addition supersedes the earlier exclusion of merchant reporting screens; a complete marketing/developer website, hosted checkout, and visual account administration remain outside scope.
 
 **Confirmed** means selected in the product discussion. **Proposed** means an implementation recommendation that the owner can change. **Open** means a decision or external dependency remains. Requirement IDs provide references for implementation tasks and acceptance tests.
 
 ## 1. Product purpose
 
 Give developers a consistent API for collecting and disbursing M-Pesa payments through Safaricom Daraja. Developers should be able to connect their business's Daraja account, initiate an STK payment, receive a C2B payment, send an individual B2C payout, and reliably determine the outcome through polling or signed webhooks.
+
+Give merchant owners and authorized team members a dashboard for reviewing transaction counts, confirmed collections, outgoing payouts, and individual outcomes without building their own reporting interface.
 
 The current repository supplies a useful STK foundation but assumes one merchant. Adding two provider endpoints alone would leave credentials, permissions, transaction identity, callback recovery, and payout controls incomplete.
 
@@ -25,29 +27,30 @@ Paystack is the reference for clear APIs, useful documentation, SDK ergonomics, 
 
 | User | Job | Release outcome |
 | --- | --- | --- |
-| Merchant owner | Connect accounts and control integration access | Sign in through Clerk-hosted authentication, then use owner APIs to create a merchant, configure capabilities, issue scoped keys, and set payout limits |
+| Merchant owner | Connect accounts, control access, and monitor payment activity | Sign in through Clerk-hosted authentication; use owner APIs for setup and permissions, and the dashboard for transaction counts, collections, payouts, and history |
 | Integrating developer | Add payments to an existing application | Select payment features and a supported integration target, then use copyable SDK snippets or a tailored coding-agent prompt without reading backend internals |
-| Finance or support integrator | Find and reconcile payment outcomes | Search receipts/references, identify unmatched C2B payments, and inspect unresolved operations through authorized APIs |
+| Finance or support member | Find and reconcile payment outcomes | Use locally granted reporting access to search the dashboard and inspect transaction outcomes; reference matching and privileged recovery remain in authorized APIs |
 | Platform operator | Recover failures safely | Inspect quarantined evidence, retry permitted processing, and monitor delivery failures without resending uncertain payouts |
 
 ## 2. Scope decisions
 
 ### Confirmed for the first release
 
-1. **APIs, documentation, and Python/TypeScript SDKs.** No dedicated website is required.
+1. **APIs, documentation, Python/TypeScript SDKs, and a focused merchant reporting dashboard.** A complete developer or marketing website is not required.
 2. **STK, C2B, and B2C are included for every merchant.** Preserve STK and add both collection notifications and individual payouts. Developers can integrate any or all three without choosing a feature package or requesting a product-access upgrade. Live use requires the corresponding provider-account setup and API-key permissions; B2C also requires owner-configured payout limits.
 3. **Each merchant supplies its own Daraja credentials and shortcodes.** Credentials and records must be isolated between merchants.
-4. **Self-service onboarding.** Owners sign in through Clerk-hosted authentication and complete merchant administration through APIs with command-line examples. A minimal authentication return helper supplies the session handoff; no merchant dashboard is required.
+4. **Self-service onboarding.** Owners sign in through Clerk-hosted authentication and complete merchant administration through APIs with command-line examples. The authentication return flow supports owner API access and entry to the read-only dashboard; account configuration remains API-based.
 5. **Automated B2C initiation using a dedicated payout-scoped key and owner-configured limits.** No owner approval is required for every payout.
 6. **Record and reconcile C2B payments.** An unknown invoice/reference must not cause an otherwise valid confirmed payment to disappear or be treated as failed.
 7. **Individual payouts first.** Bulk payout creation is deferred.
 8. **Clerk authentication with hosted login and local merchant roles.** Clerk application `app_3JMnuwEIXsPwtUo5l5zyq9OJPf5` handles human signup, login, verification, recovery, and sessions. Our backend owns merchants, memberships, roles, and scoped integration API keys. Clerk Organizations are not used in this release.
 9. **Template-generated SDK snippets and coding-agent prompts.** Manual setup returns copyable integration examples; Agent setup returns a ready-to-paste implementation prompt. Both are assembled from versioned, tested templates, without a runtime AI-generation service.
 10. **Selected Python/TypeScript integration targets.** The first release supports plain Python, plain TypeScript, FastAPI, Express, and Next.js server-side integrations. A developer selects STK, C2B, B2C, or any combination to tailor the output; selecting features does not change product access, provider readiness, or key permissions.
+11. **Read-only merchant dashboard.** Include an overview, transaction history, and transaction details with search and filters. Use Clerk login plus local reporting permissions. Display confirmed incoming money as **Total collected** and completed B2C transfers as **Total paid out**, not profit, available balance, or platform revenue.
 
 ### Excluded from this release
 
-- Marketing or developer website, merchant dashboard, visual account administration, hosted checkout, and checkout sessions.
+- Marketing or developer website, visual account administration, hosted checkout, and checkout sessions. The read-only merchant reporting dashboard is included; payout initiation, credential editing, key management, and force-completion controls are not dashboard features.
 - Custom password authentication, Clerk Organizations, runtime AI-generated integration code, and additional language targets beyond the confirmed Python/TypeScript targets. Next.js is an integration-example target, not a replacement for this FastAPI service.
 - Cards, subscriptions, split payments, marketplace settlement, platform custody, and billing merchants for API usage.
 - Bulk payouts, scheduled payroll, and automatic refunds or reversals.
@@ -71,6 +74,7 @@ The current working tree includes the earlier reliability and security fixes. Th
 | Reconciliation | STK checkout query; generic asynchronous responses retained for review | Add evidence-aware B2C recovery and merchant-visible unresolved C2B/STK records |
 | Merchant notifications | No outbound merchant webhook system | Add a transactional outbox, signing, retries, delivery history, and authorized replay |
 | Administration | Global-key callback inspection/replay | Scope merchant administration and raw evidence access; separate platform operator privileges |
+| Merchant reporting | No merchant dashboard or unified reporting endpoints | Add a Clerk-authenticated read-only dashboard with backend-calculated summaries, unified transaction history, safe details, and local reporting permissions |
 | Developer tooling | Backend package and README | Add versioned OpenAPI, independently installable Python/TypeScript clients, and tested Manual setup / Agent setup templates for the five confirmed targets |
 
 ### Implementation map
@@ -97,7 +101,7 @@ These are the current files most affected. New modules should follow the existin
 | ID | Requirement and acceptance criteria |
 | --- | --- |
 | TEN-01 | **Merchant ownership.** Every payment, transfer, recipient, provider account, callback, webhook, audit event, and background operation has an explicit merchant/environment context. A credential belonging to merchant A cannot read, list, mutate, replay, or infer merchant B's records through identifiers or pagination. |
-| TEN-02 | **Clerk-based self-service.** A new owner signs up, verifies their account, and signs in through Clerk-hosted authentication. A minimal return helper uses Clerk's supported session handling and obtains fresh session tokens for owner API examples; it must not place bearer tokens in application URLs or logs. The verified owner can create a merchant and its initial owner membership atomically through the API. An idempotent creation request cannot create duplicate merchants/memberships. Account verification does not establish ownership of an existing merchant. |
+| TEN-02 | **Clerk-based self-service.** A new owner signs up, verifies their account, and signs in through Clerk-hosted authentication. The return flow uses Clerk's supported session handling and obtains fresh session tokens for owner API access and the reporting dashboard; it must not place bearer tokens in application URLs or logs. The verified owner can create a merchant and its initial owner membership atomically through the API. An idempotent creation request cannot create duplicate merchants/memberships. Account verification does not establish ownership of an existing merchant. |
 | TEN-03 | **Environment separation.** Test and live keys, provider accounts, recipients, operations, callback routes, and webhook configuration are separate. A test key cannot initiate live payments. Responses and events identify the environment. |
 | TEN-04 | **Account capabilities.** Store credentials and shortcodes per provider account; track STK, C2B, B2C, and status-query readiness independently. Unsupported or incomplete capabilities fail before a financial request is sent. Saving credentials is not proof of provider approval. |
 | TEN-05 | **Credential protection.** Encrypt retrievable provider secrets using managed encryption keys outside the database. Never return stored secrets through read APIs. Audit creation/rotation, redact logs, and preserve the account's identity across rotation. B2C supports an encrypted `SecurityCredential` without requiring storage of the initiator's plaintext password. |
@@ -110,7 +114,7 @@ These are the current files most affected. New modules should follow the existin
 
 #### Clerk setup and authentication boundary
 
-The linked Clerk application is **`app_3JMnuwEIXsPwtUo5l5zyq9OJPf5`**. The chosen experience uses Clerk's hosted Account Portal and only the minimal session handoff necessary to call owner APIs. The backend does not store passwords, implement password recovery, or issue a replacement human-session token. [Clerk Account Portal](https://clerk.com/docs/guides/account-portal/getting-started), [Clerk Python SDK](https://github.com/clerk/clerk-sdk-python)
+The linked Clerk application is **`app_3JMnuwEIXsPwtUo5l5zyq9OJPf5`**. The chosen experience uses Clerk's hosted Account Portal and a session handoff for owner APIs and the reporting dashboard. The backend does not store passwords, implement password recovery, or issue a replacement human-session token. [Clerk Account Portal](https://clerk.com/docs/guides/account-portal/getting-started), [Clerk Python SDK](https://github.com/clerk/clerk-sdk-python)
 
 Record the supplied setup sequence as M1 implementation work: check/install or update the Clerk CLI, run `clerk auth login`, then run `clerk init --app app_3JMnuwEIXsPwtUo5l5zyq9OJPf5` from this existing project. Use the official Python integration when framework scaffolding is unavailable; finish with `clerk doctor` and an actual hosted-login-to-FastAPI acceptance test. This PRD revision does not execute those commands. The attachment's Next.js proxy, React components, and shadcn steps apply only to projects using those frameworks; they do not require converting this FastAPI service. [Clerk CLI](https://clerk.com/docs/cli)
 
@@ -200,11 +204,28 @@ Each output includes only the chosen payment flows plus their shared prerequisit
 
 Both modes include installation, configuration placeholders, authentication scopes, stable idempotency keys, correct money units, asynchronous statuses, signature verification, and error handling. Distinguish the merchant application's webhook from the service's Daraja callbacks. Test output defaults to sandbox configuration and explicit local simulation instructions. Live output explains readiness requirements but never embeds a real credential or executes a live operation. Manual setup and Agent setup are output modes exposed through the API/SDK and documentation, not a requirement to build the screenshot's tabbed website interface.
 
+### 4.7 Merchant dashboard
+
+The dashboard is a first-release product requirement for merchant owners and authorized team members. It provides reporting for the existing payment flows while retaining API-based account administration. It has three views: **Overview**, **Transaction history**, and **Transaction details**.
+
+| ID | Requirement and acceptance criteria |
+| --- | --- |
+| DASH-01 | **Authenticated reporting access.** Require a verified Clerk session and the local `reports:read` permission for the selected merchant. Owners receive this permission; other members require an explicit local grant. Enforce membership, permission, merchant, and environment checks on every summary, list, and detail request. Removing access blocks the next request. The browser uses the Clerk session and does not receive merchant API secrets or Daraja credentials. |
+| DASH-02 | **Overview.** Display total transactions, successful transactions, unresolved transactions, failed/cancelled transactions, Total collected, and Total paid out for the selected filters. Map `completed` to successful, `pending`/`unknown`/`review_required` to unresolved, and `failed`/`cancelled` to failed/cancelled. Show historical `reversed` records as a separate status when present so the status breakdown remains explainable. Calculate aggregates on the backend; do not sum only the visible page of transactions. |
+| DASH-03 | **Verified totals and deduplication.** Total collected is the sum of verified completed STK/C2B financial movements; Total paid out is the sum of verified completed B2C transfers. Never label these amounts as profit, available account balance, or platform revenue. Duplicate callbacks and linked STK/C2B observations of one account/environment/receipt count once in both the reporting list and aggregates. Keep unresolved, failed, cancelled, reversed, or insufficiently evidenced records out of confirmed monetary totals; identify incomplete historical evidence in details without rewriting the stored outcome. |
+| DASH-04 | **Transaction history and filters.** Provide a unified, cursor-paginated STK/C2B/B2C list searchable by reference and receipt. Support date range, payment type, status, provider account, and test/live environment filters. The selected environment is always visible and is never silently combined with the other environment. Linked STK/C2B observations appear as one financial movement; type filters may match either linked source but must still return that movement at most once. |
+| DASH-05 | **Reporting dates.** Default to the last 30 calendar days, including today, in Africa/Nairobi time. Use verified transaction time for evidenced completed movements and creation time for unresolved or unsuccessful operations. For historical completed records without sufficient evidence/time, use creation time for list visibility, mark the evidence gap, and exclude the amount from confirmed monetary totals. Apply the same reporting timestamp and selected range to summary and history; retain UTC storage and convert calendar boundaries consistently. Document that later confirmation can move a record between reporting dates and change earlier totals. |
+| DASH-06 | **Transaction details.** Display amount, currency, payment type/source observations, financial status, reference, available receipt, creation/transaction timestamps, and the explanation for an unresolved or incomplete outcome. Link unified history rows to the existing payment/transfer detail APIs using their resource type and stable IDs. A local reporting grant permits only the safe detail representation; raw callback payloads, credentials, and privileged recovery remain separately restricted. |
+| DASH-07 | **Refresh and interface states.** Refresh on initial load, filter changes, and an explicit Refresh action; display the last successful refresh time. Provide distinct loading, empty, unavailable, and access-denied states. A failed report request must not render zero collections/payouts as if they were verified results. If previously loaded data remains visible after a refresh failure, label it stale. |
+| DASH-08 | **Read-only boundary.** Include no payout initiation, credential editing, key management, reference mutation, replay, or force-completion controls. Reporting permissions cannot authorize those operations by calling their APIs directly. Keep marketing/developer pages, hosted checkout, and visual account administration outside this dashboard's scope. |
+
+The default reporting period covers midnight 29 days before today through the end of today in Africa/Nairobi; queries use an inclusive start and exclusive next-day boundary. Counts describe logical reporting records after deduplication, not callback deliveries. Successful-status counts and monetary evidence are distinct: historical incomplete records remain visible with an evidence warning rather than being silently presented as verified income.
+
 ## 5. Proposed public API contract
 
 Route names and exact schemas below are **proposals**, not descriptions of existing endpoints. Freeze them in OpenAPI during the foundation milestone before implementing the SDKs.
 
-Document separate OpenAPI security schemes for a Clerk owner session and a merchant integration key, both transported through `Authorization: Bearer`. Each protected route explicitly permits its intended principal type. Owner administration requires a verified Clerk session plus local authorization. Financial initiation uses a scoped merchant integration key and requires `Idempotency-Key`. That key fixes merchant/environment context; supplied resource IDs cannot override it. Owner sessions may select only merchants/environments authorized by their local memberships. Public guide endpoints and separately authenticated webhook/callback endpoints are explicit exceptions, not broad authentication bypasses.
+Document separate OpenAPI security schemes for a Clerk human session and a merchant integration key, both transported through `Authorization: Bearer`. Each protected route explicitly permits its intended principal type. Owner administration requires a verified Clerk session plus local authorization; dashboard reporting requires a verified Clerk session plus local `reports:read` permission. Financial initiation uses a scoped merchant integration key and requires `Idempotency-Key`. That key fixes merchant/environment context; supplied resource IDs cannot override it. Human sessions may select only merchants/environments authorized by their local memberships. Public guide endpoints and separately authenticated webhook/callback endpoints are explicit exceptions, not broad authentication bypasses.
 
 | Resource | Proposed operations | Purpose |
 | --- | --- | --- |
@@ -222,8 +243,18 @@ Document separate OpenAPI security schemes for a Clerk owner session and a merch
 | Recovery | `/api/v2/callback-events`, `/api/v2/callback-events/{id}/replay`, `/api/v2/reconciliation-cases` | Permission-controlled evidence inspection and reconciliation |
 | Integration catalog | `GET /api/v2/integration-guides/catalog` | List supported targets, feature combinations, modes, and compatible template/API/SDK versions |
 | Integration output | `POST /api/v2/integration-guides/render` | Return tailored Manual setup snippets or an Agent setup prompt from a supported template selection |
+| Reporting summary | `GET /api/v2/reporting/summary` | Return deduplicated transaction counts and confirmed incoming/outgoing totals for the authorized merchant and selected filters |
+| Reporting history | `GET /api/v2/reporting/transactions` | Return a unified, cursor-paginated reporting list with links to safe existing payment/transfer detail resources |
 
 Provider callback routes are separately authenticated and are not merchant creation APIs. Use account/environment-specific opaque routing credentials and neutral path names that satisfy provider URL rules. Do not let an untrusted shortcode inside a payload select another merchant's credentials.
+
+#### Reporting API behavior
+
+Both reporting endpoints require an explicit authorized merchant and environment and accept the same date-range, payment-type, status, provider-account, reference, and receipt filters; the list also accepts pagination parameters. The summary covers the full filtered set, independent of the current list page. Responses identify the merchant, environment, effective filters/range, reporting timezone, currency, and generation time. Financial values use exact arithmetic and the documented API money representation.
+
+Use shared backend reporting queries over authoritative payment/transfer and canonical-movement records. Apply ownership and evidence checks before aggregation, and compute each summary from a consistent database snapshot. History rows carry the resource type, stable operation/detail identifier, canonical movement identifier when available, linked source observations, and reporting timestamp. Summary and history use the same filtering and deduplication definitions; newly processed callbacks between refreshes may legitimately change results.
+
+Permit a Clerk session with local reporting access to retrieve the corresponding safe payment/transfer details. This must not expose raw callback evidence or broaden that member's mutation permissions. Cross-merchant IDs, altered filter parameters, cursors, and direct detail URLs cannot bypass authorization. Browser responses/caches must not carry one merchant's private report into another session or merchant selection.
 
 #### Integration renderer contract
 
@@ -289,12 +320,14 @@ Reuse process-wide database/HTTP/Redis pools. Construct lightweight per-operatio
 
 Keep integration templates, their compatibility catalog, and verification fixtures in version control. Share the validated source examples between manual output and coding-agent prompts to reduce drift. The renderer composes documentation only and needs neither an AI provider nor a merchant-specific generation table.
 
+The merchant dashboard consumes authenticated reporting APIs; it does not become a separate source of payment truth. Reuse the canonical financial-movement associations and existing payment/transfer records for summaries, unified history, and detail links. Add indexes or read projections where measurements justify them, while preserving the reporting semantics and freshness information. The frontend must not perform its own receipt reconciliation or hold provider credentials.
+
 ### Minimum data responsibilities
 
 | Entity | Required responsibility |
 | --- | --- |
 | Local user / Clerk identity binding | Unique verified issuer + Clerk user ID, minimal profile fields, enabled/deleted state, and lifecycle-event tracking; no stored passwords |
-| Merchant, owner, membership | Establish local ownership and administration privileges; creation and initial owner assignment are atomic |
+| Merchant, owner, membership | Establish local ownership, administration privileges, and reporting grants; owners receive `reports:read`, while other members need a local grant; creation and initial owner assignment are atomic |
 | Clerk lifecycle inbox | Signed-event identity, durable deduplication, processing state, and ordering/deletion safeguards, separate from Daraja payment evidence |
 | API key | Merchant/environment scope, verification digest, privileges, expiration/revocation |
 | Provider account and credential version | Immutable business-account identity, environment, shortcodes/capabilities, encrypted secrets, callback routing and rotation history |
@@ -349,14 +382,17 @@ No delivery dates are committed here. Estimate after the open architecture choic
 
 | Milestone | Deliverable | Exit criteria |
 | --- | --- | --- |
-| M0 — Contract and design | Frozen initial OpenAPI, Clerk/local authorization boundary, ownership model, receipt association design, template catalog contract, migration plan | Record confirmed Clerk and integration-target choices; confirm amount convention, package names, and capability defaults; turn requirement IDs into tracked tasks |
+| M0 — Contract and design | Frozen initial OpenAPI, Clerk/local authorization boundary, ownership model, receipt association design, template catalog and reporting contracts, migration plan | Record confirmed Clerk, integration-target, and read-only dashboard choices; confirm amount convention, package names, and capability defaults; turn requirement IDs into tracked tasks |
 | M1 — Tenant foundation | Clerk-hosted login/session handoff, local roles, identity lifecycle processing, API onboarding, account credentials, scoped keys, v2 STK, compatible migration, shared outbox primitives | Hosted login reaches owner APIs; Clerk token/role/lifecycle checks pass; two merchants and both payment environments pass isolation tests; existing STK integrity and legacy recovery checks pass |
 | M2 — C2B | Registration, validation, confirmation, typed evidence, reference matching, STK/C2B receipt association | Registered sandbox flow and deterministic duplicate/out-of-order tests pass; unmatched payments remain visible; masked identities work |
 | M3 — B2C | Recipients, limits/reservations, durable dispatch, result/timeout processing, query recovery | Individual sandbox transfer settles with verified evidence; concurrency and ambiguous-send tests prove no automatic duplicate payout |
 | M4 — Events and recovery | Signed delivery, retries/replay, recovery APIs, runbooks and observability | Worker/Redis outage loses no committed event; signature, SSRF, tenant-isolation, and replay tests pass |
-| M5 — SDKs and release validation | Python/TypeScript packages, Manual setup / Agent setup templates for all five targets, catalog/render APIs and SDK helpers, executable guides, OpenAPI compatibility checks, release artifacts | All 140 template selections render correctly; clean-install manual examples execute/type-check with simulated provider behavior; prompts match the same contracts; all release checks and provider acceptance evidence recorded |
+| M5 — SDKs and integration validation | Python/TypeScript packages, Manual setup / Agent setup templates for all five targets, catalog/render APIs and SDK helpers, executable guides, OpenAPI compatibility checks, package artifacts | All 140 template selections render correctly; clean-install manual examples execute/type-check with simulated provider behavior; prompts match the same contracts; SDK/provider acceptance evidence recorded |
+| M6 — Merchant dashboard and final release validation | Clerk-authenticated overview, unified history and details, reporting APIs, local reporting permissions, filters and refresh/error states | Dashboard/API authorization, deduplication, totals, time-boundary, pagination and browser-flow tests pass; all earlier milestone and release checks are complete before the first release |
 
 Documentation and regression tests are produced with each milestone. Shared event creation is built early; M4 completes delivery and operational behavior rather than adding notification requirements after payment flows are finished.
+
+The dashboard depends on the tenant foundation and authoritative payment/evidence model. Build its permission foundations with M1 and its reporting interfaces against those shared records; M6 verifies the complete reporting experience. Completing M5 alone does not complete the first release because the dashboard is now included.
 
 ## 11. Acceptance and definition of done
 
@@ -388,6 +424,12 @@ Documentation and regression tests are produced with each milestone. Shared even
 | Manual/agent consistency | Both modes use the same SDK/API versions and selected flow contracts; manual examples execute/type-check, and prompts include matching implementation and acceptance instructions | DX-08–11 |
 | Safe, reproducible guide rendering | A pinned selection produces stable output with placeholders only; rendering neither reads merchant records nor calls payment/account-mutation APIs; generated Next.js examples keep secrets server-side | DX-07, DX-09–10 |
 | Feature selection and authentication boundary | Tailoring guides never changes TEN-08 access; merchant integration prompts require scoped payment keys and do not install the platform's Clerk application into the consuming project | TEN-06, TEN-08, DX-09 |
+| Dashboard login and isolation | A Clerk-authenticated owner can view their merchant's reports; another member needs a local reporting grant; changing merchant/account IDs, cursors, filters, or detail URLs cannot reveal another merchant's data | DASH-01, DASH-04, DASH-06 |
+| Reporting access revocation | Removing the membership or reporting grant blocks the next summary, history, or detail request; reporting access cannot call privileged mutation APIs | TEN-10, DASH-01, DASH-08 |
+| Dashboard environment and totals | Test records never affect live reports; B2C payouts remain separate from collections; unresolved/unsuccessful or insufficiently evidenced records do not increase confirmed monetary totals | DASH-02–05 |
+| Dashboard receipt deduplication | Repeated callbacks and linked STK/C2B observations produce one logical transaction and one collection amount; the same rule holds in filtered lists and summaries | C2B-06, DASH-03–04 |
+| Dashboard dates, search and pagination | Nairobi midnight boundaries and the default 30-day range are correct; summary/history filters agree; pagination does not change totals; late confirmation updates the reporting date as documented; detail links resolve to the authorized record | DASH-04–06 |
+| Dashboard interface states | Browser tests distinguish loading, empty results, unavailable reporting and denied access; a refresh failure cannot display a false zero total or silently present stale data as current | DASH-07 |
 
 ### Release completion checklist
 
@@ -396,11 +438,13 @@ Documentation and regression tests are produced with each milestone. Shared even
 - [ ] Existing regression coverage is retained; CI continues enforcing at least 90% application line coverage. Coverage is not a substitute for the financial and tenant-isolation scenarios above.
 - [ ] Python and TypeScript clients pass integration, signature-verification, error-contract, and fresh-install checks.
 - [ ] Clerk-hosted owner login, local merchant roles, identity lifecycle handling, and token/environment boundaries pass their acceptance scenarios.
+- [ ] The read-only merchant dashboard provides overview, unified history, and safe transaction details through Clerk-authenticated, locally authorized reporting APIs.
+- [ ] Dashboard totals, deduplication, environment isolation, date boundaries, pagination, access revocation, and loading/empty/error states pass backend and browser acceptance tests.
 - [ ] Manual setup snippets and Agent setup prompts are available through the catalog/render APIs and both SDKs for Python, TypeScript, FastAPI, Express, and Next.js server-side integrations.
 - [ ] All 140 template render selections pass; manual examples execute/type-check against supported versions with simulated provider/network behavior; agent prompts pass contract/content checks without claiming automatic coding-agent correctness.
 - [ ] Lint, format, migration, packaging, dependency, and OpenAPI/example checks pass.
 - [ ] Actual Safaricom sandbox acceptance is recorded for supported capabilities. CI never sends real money. Live readiness remains merchant/account-specific.
-- [ ] An integrator can complete Clerk-hosted owner authentication, API onboarding, and all three payment flows from the guides without a product dashboard.
+- [ ] An integrator can complete Clerk-hosted owner authentication, API onboarding, and all three payment flows from the guides; the API workflow remains usable independently of the reporting dashboard.
 - [ ] Every merchant has access to all three APIs without feature-package selection; account readiness and key permissions are explained and enforced separately.
 - [ ] Limits, retention, monitoring, callback routing, credentials, and recovery runbooks are configured for the target deployment.
 - [ ] Known provider limitations and remaining gaps are stated accurately; no claim of complete Paystack parity or exactly-once provider processing.
@@ -409,15 +453,17 @@ The previous remediation run reported 115 passing tests and 95.80% application l
 
 ## 12. Clarifications for the product owner
 
-These questions refine implementation. They do not reopen the confirmed API/SDK scope, merchant-owned credentials, C2B record-and-reconcile policy, individual automated B2C model, Clerk authentication, or template-generation choices. Resolved decisions are retained below so reviewers can distinguish them from remaining questions.
+These questions refine implementation. They do not reopen the confirmed API/SDK and read-only dashboard scope, merchant-owned credentials, C2B record-and-reconcile policy, individual automated B2C model, Clerk authentication, or template-generation choices. Resolved decisions are retained below so reviewers can distinguish them from remaining questions.
 
 | Decision | Proposed starting point | Why it matters | Owner's answer |
 | --- | --- | --- | --- |
 | Product and SDK names | Keep the repository name temporarily; choose distinct Python/npm package names before M5 | Names affect imports, examples, registry availability, and release metadata | _To fill in_ |
-| Owner authentication | Clerk application `app_3JMnuwEIXsPwtUo5l5zyq9OJPf5`; hosted login and minimal session handoff | Removes custom signup/password/recovery implementation while supporting owner APIs | **Resolved: Clerk-hosted authentication** |
+| Owner authentication | Clerk application `app_3JMnuwEIXsPwtUo5l5zyq9OJPf5`; hosted login and session handoff for owner APIs and the dashboard | Removes custom signup/password/recovery implementation while supporting authenticated administration and reporting | **Resolved: Clerk-hosted authentication** |
 | Merchant roles | Local PostgreSQL memberships/roles and locally issued integration keys | Separates human identity from payment permissions and merchant ownership | **Resolved: local roles; no Clerk Organizations** |
 | Integration generation | Versioned, tested templates with Manual setup snippets and Agent setup prompts | Produces consistent feature-specific instructions without runtime AI costs | **Resolved: tested templates, both modes** |
 | Integration targets | Python, TypeScript, FastAPI, Express, and Next.js server-side integrations | Defines template fixtures and SDK/example coverage | **Resolved: these five targets** |
+| Merchant dashboard | Read-only overview, transaction history, and details with local reporting access; default last 30 calendar days in Africa/Nairobi | Provides merchant transaction visibility without expanding into visual account administration | **Resolved: include in the first release** |
+| Financial reporting labels | Total collected for confirmed STK/C2B movements; Total paid out for completed B2C transfers; deduplicate linked observations | Keeps incoming and outgoing money distinct and avoids claims of profit, account balance, or platform revenue | **Resolved: separate confirmed totals** |
 | Deployment model | One hosted multi-merchant API with merchant-owned Daraja accounts; preserve local development | Determines TLS endpoints, onboarding access, hosting and operations | _To fill in_ |
 | Money contract | Integer whole KES for v2; leave v1 wire format compatible | Prevents unit mistakes across SDKs and provider adapters | _To fill in_ |
 | Provider accounts per environment | Data model supports multiple accounts; require explicit account ID for financial creation | Avoids accidentally choosing a shortcode with the wrong capabilities | _To fill in_ |
@@ -453,3 +499,4 @@ Suggested change-request format:
 | 0.1 | 15 September 2026 | Initial PRD grounded in the STK repository and corrected API/docs/SDK scope; C2B/B2C, tenant isolation, webhooks, migration, acceptance criteria, and owner clarifications defined |
 | 0.2 | 15 September 2026 | Confirmed STK, C2B, and B2C access for every merchant without feature-package selection; retained account-specific setup, scoped keys, and payout limits; added acceptance criteria |
 | 0.3 | 15 September 2026 | Confirmed Clerk-hosted authentication with local merchant roles; specified Manual setup SDK snippets and Agent setup prompts from tested templates for Python, TypeScript, FastAPI, Express, and Next.js server-side integrations; added API/data requirements, milestone updates, resolved decisions, and acceptance coverage |
+| 0.4 | 19 September 2026 | Added a first-release read-only merchant dashboard with overview/history/details, Clerk login and local reporting grants, deduplicated collection/payout totals, reporting APIs, date/filter/refresh rules, a dashboard milestone, and acceptance criteria; replaced the earlier dashboard exclusion while retaining API-based administration |
